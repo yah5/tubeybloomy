@@ -98,7 +98,7 @@ TubeyBloomyAudioProcessorEditor::TubeyBloomyAudioProcessorEditor(TubeyBloomyAudi
     setLookAndFeel(&orangeLookAndFeel);
 
     titleLabel.setText("tubeybloomy", juce::dontSendNotification);
-    titleLabel.setFont(juce::Font(juce::FontOptions().withHeight(28.0f).withStyle("Bold")));
+    titleLabel.setFont(juce::Font(juce::FontOptions(28.0f)));
     titleLabel.setJustificationType(juce::Justification::centred);
     titleLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFFF8C24));
     addAndMakeVisible(titleLabel);
@@ -123,7 +123,7 @@ TubeyBloomyAudioProcessorEditor::TubeyBloomyAudioProcessorEditor(TubeyBloomyAudi
         addAndMakeVisible(s);
 
         l.setText(name, juce::dontSendNotification);
-        l.setFont(juce::Font(juce::FontOptions().withHeight(14.0f).withStyle("Bold")));
+        l.setFont(juce::Font(juce::FontOptions(14.0f)));
         l.setColour(juce::Label::textColourId, juce::Colour(0xFFE2E2E8));
         addAndMakeVisible(l);
     };
