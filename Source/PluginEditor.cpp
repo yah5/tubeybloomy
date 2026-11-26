@@ -78,10 +78,16 @@ void CuteTubeMascot::paint(juce::Graphics& g) {
     g.setColour(juce::Colours::white);
     juce::Path smile;
     if (glow > 0.35f) {
-        smile.addPie(cx - 5.0f, cy - 5.0f, 10.0f, 9.0f, 0.0f, juce::MathConstants<float>::pi);
+        smile.addPieSegment(cx - 5.0f, cy - 6.0f, 10.0f, 9.0f,
+                            juce::MathConstants<float>::halfPi,
+                            juce::MathConstants<float>::pi * 1.5f,
+                            0.0f);
         g.fillPath(smile);
     } else {
-        smile.addArc(cx - 4.5f, cy - 5.0f, 9.0f, 6.0f, 0.2f, juce::MathConstants<float>::pi - 0.2f, true);
+        smile.addArc(cx - 4.5f, cy - 5.0f, 9.0f, 6.0f,
+                     juce::MathConstants<float>::halfPi + 0.2f,
+                     juce::MathConstants<float>::pi * 1.5f - 0.2f,
+                     true);
         g.strokePath(smile, juce::PathStrokeType(1.8f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
     }
 
@@ -98,7 +104,7 @@ TubeyBloomyAudioProcessorEditor::TubeyBloomyAudioProcessorEditor(TubeyBloomyAudi
     setLookAndFeel(&orangeLookAndFeel);
 
     titleLabel.setText("tubeybloomy", juce::dontSendNotification);
-    titleLabel.setFont(juce::Font(juce::FontOptions(28.0f, juce::Font::bold)));
+    titleLabel.setFont(juce::Font(juce::FontOptions(28.0f)));
     titleLabel.setJustificationType(juce::Justification::centred);
     titleLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFFF8C24));
     addAndMakeVisible(titleLabel);
@@ -123,7 +129,7 @@ TubeyBloomyAudioProcessorEditor::TubeyBloomyAudioProcessorEditor(TubeyBloomyAudi
         addAndMakeVisible(s);
 
         l.setText(name, juce::dontSendNotification);
-        l.setFont(juce::Font(juce::FontOptions(14.0f, juce::Font::bold)));
+        l.setFont(juce::Font(juce::FontOptions(14.0f)));
         l.setColour(juce::Label::textColourId, juce::Colour(0xFFE2E2E8));
         addAndMakeVisible(l);
     };
