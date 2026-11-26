@@ -58,7 +58,7 @@ void TubeyBloomyAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
 
     float blockInputPeak = 0.0f;
     for (int ch = 0; ch < buffer.getNumChannels(); ++ch) {
-        blockInputPeak = std::max(blockInputPeak, buffer.getMagnitude(ch, 0, buffer.getNumSamples()));
+        blockInputPeak = juce::jmax(blockInputPeak, buffer.getMagnitude(ch, 0, buffer.getNumSamples()));
     }
     currentInputLevel.store(blockInputPeak, std::memory_order_relaxed);
 
@@ -84,7 +84,7 @@ void TubeyBloomyAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
     for (size_t i = 0; i < numSamples; ++i) {
         float peak = 0.0f;
         for (size_t ch = 0; ch < numChannels; ++ch)
-            peak = std::max(peak, std::abs(osBlock.getSample(ch, i) * inputGain));
+            peak = juce::jmax(peak, std::abs(osBlock.getSample(ch, i) * inputGain));
 
         envelope = (peak > envelope)
             ? attackCoeff * envelope + (1.0f - attackCoeff) * peak
