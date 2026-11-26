@@ -1,0 +1,20 @@
+name: Build VST3 Plugin
+on: [workflow_dispatch, push]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build VST3
+        run: cmake --build build --config Release --target tubeybloomy_VST3
+      - name: Upload VST3 Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TubeyBloomy-${{ matrix.os }}
+          path: build/tubeybloomy_artefacts/Release/VST3/
