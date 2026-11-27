@@ -2,14 +2,6 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "PluginProcessor.h"
 
-inline juce::Font makeDmSansFont(float size, bool bold = false) {
-    auto opts = juce::FontOptions(size);
-    opts = opts.withName("DM Sans");
-    juce::Font f(opts);
-    f.setBold(bold);
-    return f;
-}
-
 class OutputLevelSlider : public juce::Slider {
 public:
     juce::String getTextFromValue(double value) override {
@@ -22,7 +14,6 @@ public:
 class TubeSnifferLookAndFeel : public juce::LookAndFeel_V4 {
 public:
     TubeSnifferLookAndFeel() {
-        setDefaultSansSerifTypefaceName("DM Sans");
         setColour(juce::Slider::thumbColourId, juce::Colours::white);
         setColour(juce::Slider::trackColourId, juce::Colour(0xFFFF7A1A));
         setColour(juce::Slider::backgroundColourId, juce::Colour(0xFF2A2A2E));
@@ -30,12 +21,8 @@ public:
         setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
     }
 
-    juce::Font getLabelFont(juce::Label& label) override {
-        return makeDmSansFont(label.getFont().getHeight(), label.getFont().isBold());
-    }
-
     juce::Font getTextButtonFont(juce::TextButton&, int buttonHeight) override {
-        return makeDmSansFont(juce::jmin(14.0f, static_cast<float>(buttonHeight) * 0.52f), true);
+        return juce::Font(juce::FontOptions(juce::jmin(13.5f, static_cast<float>(buttonHeight) * 0.56f)));
     }
 
     void drawLinearSlider(juce::Graphics& g, int x, int y, int width, int height,
@@ -108,8 +95,9 @@ public:
         const juce::String firstChar = text.substring(0, 1);
         const juce::String restChars = text.substring(1);
 
-        juce::Font boldFont    = makeDmSansFont(15.5f, true);
-        juce::Font regularFont = makeDmSansFont(14.5f, false);
+        juce::Font boldFont(juce::FontOptions(15.5f));
+        boldFont.setBold(true);
+        juce::Font regularFont(juce::FontOptions(14.5f));
 
         juce::GlyphArrangement ga;
         ga.addLineOfText(boldFont, firstChar, 0.0f, 0.0f);
@@ -201,7 +189,7 @@ private:
     juce::Label driveLabel, sagLabel, harmonicsLabel, tightLabel, outputLabel;
 
     // Toggle button next to Output Level label
-    juce::TextButton outputPowerBtn { "OFF" };
+    juce::TextButton outputPowerBtn { "ON" };
 
     // 3 A/B/C Custom Memory Buttons below sliders
     BoldFirstLetterButton assBtn   { "Ass Sniff" };
