@@ -90,20 +90,16 @@ void TubeyBloomyAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
         return;
     }
 
-    const float driveDb        = apvts.getRawParameterValue("drive")->load();
-    const float sag            = apvts.getRawParameterValue("sag")->load() * 0.1f;
-    const float harmonicsLevel = apvts.getRawParameterValue("harmonics")->load(); // 0.0 to 5.0
-    const float tightHz        = apvts.getRawParameterValue("tight")->load();
+    const float driveDb      = apvts.getRawParameterValue("drive")->load();
+    const float sag          = apvts.getRawParameterValue("sag")->load() * 0.1f;
+    const float harmonicsAmt = apvts.getRawParameterValue("harmonics")->load() / 5.0f; // 0.0 to 1.0
+    const float tightHz      = apvts.getRawParameterValue("tight")->load();
 
     const float inputGain  = juce::Decibels::decibelsToGain(driveDb);
     const float outputGain = juce::Decibels::decibelsToGain(outputDb);
 
-    // Calibrated harmonic intensity: level 1 matches previous level 3, levels 2..5 scale dramatically stronger
-    const float harmNorm   = harmonicsLevel / 5.0f;
-    const float harmDrive  = (harmonicsLevel > 0.5f) ? (0.60f + (harmonicsLevel - 1.0f) * 0.48f) : 0.0f; // 0, 0.60, 1.08, 1.56, 2.04, 2.52
-    const float harmMix    = (harmonicsLevel > 0.5f) ? (0.33f + (harmonicsLevel - 1.0f) * 0.19f) : 0.0f; // 0, 0.33, 0.52, 0.71, 0.90, 1.09
-
-    const float transformerCutoff = 9200.0f - (harmNorm * 2200.0f);
+    // Restored stable transformer cutoff and harmonic synthesis curve
+    const float transformerCutoff = 9200.0f - (harmonicsAmt * 1700.0f);
     *postLowPass.state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(getSampleRate() * 4.0, transformerCutoff);
     *preHighPass.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(getSampleRate() * 4.0, tightHz);
 
@@ -135,14 +131,17 @@ void TubeyBloomyAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
             const float triode = (biased >= 0.0f) ? std::tanh(biased * 1.15f) : std::tanh(biased * 0.85f);
             float outSample    = triode - dcOffset;
 
-            if (harmonicsLevel > 0.5f) {
-                const float clamped   = std::tanh(outSample * (1.25f + harmDrive * 0.65f));
-                const float even2nd   = (clamped * clamped) * 0.52f; // Single-ended 2nd-order warmth
-                const float odd3rd    = (clamped * clamped * clamped - 0.75f * clamped) * 0.46f; // Push-pull 3rd-order grit
-                const float overtones = std::tanh((even2nd + odd3rd) * (1.2f + harmDrive * 1.35f));
+            if (harmonicsAmt > 0.001f) {
+                const float clamped   = std::tanh(outSample * 1.25f);
+                const float even2nd   = (clamped * clamped) * 0.42f;
+                const float odd3rd    = (clamped * clamped * clamped - 0.75f * clamped) * 0.34f;
+                const float overtones = std::tanh((even2nd + odd3rd) * (1.0f + harmonicsAmt * 0.8f));
 
-                outSample = std::tanh(outSample + overtones * harmMix);
+                outSample += overtones * (harmonicsAmt * 0.55f);
             }
+
+            if (!std::isfinite(outSample))
+                outSample = 0.0f;
 
             osBlock.setSample(ch, i, outSample);
         }
