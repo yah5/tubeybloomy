@@ -52,9 +52,9 @@ public:
     // 0 = Ass Sniff, 1 = Booty Sniff, 2 = Crack Sniff (Output Level is independent)
     int activeSlot = 0;
     std::array<SlotSettings, 3> slotMemory {{
-        { 3.0f,  3.0f, 1.0f, 70.0f  }, // Ass Sniff
-        { 9.0f,  6.0f, 3.0f, 90.0f  }, // Booty Sniff
-        { 16.0f, 9.0f, 5.0f, 115.0f }  // Crack Sniff
+        { 2.0f,  3.0f, 1.0f, 70.0f  }, // Ass Sniff
+        { 6.0f,  7.0f, 3.0f, 90.0f  }, // Booty Sniff
+        { 10.0f, 11.0f, 6.0f, 115.0f } // Crack Sniff
     }};
 
     float lastNonZeroOutput = 1.0f;
