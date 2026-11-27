@@ -45,16 +45,16 @@ public:
 
     std::atomic<float> currentInputLevel { 0.0f };
 
-    // 0 = Ass, 1 = Booty, 2 = Crack (each stores independent custom settings)
+    // 0 = Ass Sniff, 1 = Booty Sniff, 2 = Crack Sniff
     int activeSlot = 0;
     std::array<SlotSettings, 3> slotMemory {{
-        { 2.0f,  3.0f, 70.0f,  0.0f }, // Ass
-        { 7.0f,  6.0f, 90.0f,  0.0f }, // Booty
-        { 13.0f, 9.0f, 115.0f, 0.0f }  // Crack
+        { 3.0f,  3.0f, 70.0f,  0.0f }, // Ass Sniff
+        { 9.0f,  6.0f, 90.0f,  0.0f }, // Booty Sniff
+        { 16.0f, 9.0f, 115.0f, 0.0f }  // Crack Sniff
     }};
 
-    // UI scale multiplier: 1, 2, or 3
-    int uiScaleMultiplier = 1;
+    // UI scale index: 0 = 1x (100%), 1 = 1.5x (150%), 2 = 2x (200%)
+    int uiScaleIndex = 0;
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
