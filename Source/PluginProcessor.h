@@ -2,11 +2,19 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cmath>
 
 class TubeyBloomyAudioProcessor : public juce::AudioProcessor {
 public:
+    struct SlotSettings {
+        float drive;
+        float sag;
+        float tight;
+        float output;
+    };
+
     TubeyBloomyAudioProcessor();
     ~TubeyBloomyAudioProcessor() override = default;
 
@@ -37,11 +45,16 @@ public:
 
     std::atomic<float> currentInputLevel { 0.0f };
 
-    int activeStrengthMode = 1;
-    float customDrive = 6.0f;
-    float customSag = 5.0f;
-    float customTight = 85.0f;
-    float customOutput = 0.0f;
+    // 0 = Ass, 1 = Booty, 2 = Crack (each stores independent custom settings)
+    int activeSlot = 0;
+    std::array<SlotSettings, 3> slotMemory {{
+        { 2.0f,  3.0f, 70.0f,  0.0f }, // Ass
+        { 7.0f,  6.0f, 90.0f,  0.0f }, // Booty
+        { 13.0f, 9.0f, 115.0f, 0.0f }  // Crack
+    }};
+
+    // UI scale multiplier: 1, 2, or 3
+    int uiScaleMultiplier = 1;
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
