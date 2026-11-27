@@ -2,145 +2,280 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "PluginProcessor.h"
 
-class OutputLevelSlider : public juce::Slider {
+class AmpRotaryLookAndFeel : public juce::LookAndFeel_V4 {
 public:
-    juce::String getTextFromValue(double value) override {
-        if (value < 0.5)
-            return "OFF";
-        return juce::String(juce::roundToInt(value)) + " dB";
+    AmpRotaryLookAndFeel() {
+        setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xFFFF8C1A));
+        setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour(0xFF2E2622));
+    }
+
+    void drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
+                          float sliderPosProportional, float rotaryStartAngle,
+                          float rotaryEndAngle, juce::Slider&) override {
+        auto bounds = juce::Rectangle<float>(static_cast<float>(x), static_cast<float>(y),
+                                             static_cast<float>(width), static_cast<float>(height)).reduced(2.0f);
+        const float cx = bounds.getCentreX();
+        const float cy = bounds.getCentreY();
+        const float maxR = juce::jmin(bounds.getWidth(), bounds.getHeight()) * 0.5f;
+
+        // 1. Exactly 10 evenly spaced, uniform-thickness thin cream tick marks (#D8D3C5, ~1.5px wide)
+        const float tickInnerR = maxR - 7.5f;
+        const float tickOuterR = maxR - 1.5f;
+        g.setColour(juce::Colour(0xFFD8D3C5));
+        for (int i = 0; i < 10; ++i) {
+            const float norm = static_cast<float>(i) / 9.0f;
+            const float angle = rotaryStartAngle + norm * (rotaryEndAngle - rotaryStartAngle);
+            const float sinA = std::sin(angle);
+            const float cosA = -std::cos(angle);
+            g.drawLine(cx + sinA * tickInnerR, cy + cosA * tickInnerR,
+                       cx + sinA * tickOuterR, cy + cosA * tickOuterR, 1.5f);
+        }
+
+        // 2. Knob body geometry
+        const float skirtR = maxR - 11.5f;
+        const float capR   = skirtR - 4.5f;
+
+        // Drop shadow
+        g.setColour(juce::Colour(0x99000000));
+        g.fillEllipse(cx - skirtR + 1.5f, cy - skirtR + 3.0f, skirtR * 2.0f, skirtR * 2.0f);
+
+        // Dark metallic bronze-tinted outer skirt (#2E2622)
+        juce::ColourGradient skirtGrad(
+            juce::Colour(0xFF423630), cx - skirtR * 0.5f, cy - skirtR * 0.7f,
+            juce::Colour(0xFF1E1815), cx + skirtR * 0.6f, cy + skirtR * 0.8f, false);
+        g.setGradientFill(skirtGrad);
+        g.fillEllipse(cx - skirtR, cy - skirtR, skirtR * 2.0f, skirtR * 2.0f);
+
+        // Knurled grip ridges around skirt perimeter
+        const int numKnurls = 28;
+        g.setColour(juce::Colour(0x55100D0B));
+        for (int k = 0; k < numKnurls; ++k) {
+            const float ka = (static_cast<float>(k) / static_cast<float>(numKnurls)) * juce::MathConstants<float>::twoPi;
+            const float x1 = cx + std::cos(ka) * (capR + 0.5f);
+            const float y1 = cy + std::sin(ka) * (capR + 0.5f);
+            const float x2 = cx + std::cos(ka) * (skirtR - 0.5f);
+            const float y2 = cy + std::sin(ka) * (skirtR - 0.5f);
+            g.drawLine(x1, y1, x2, y2, 1.1f);
+        }
+
+        g.setColour(juce::Colour(0xFF14110F));
+        g.drawEllipse(cx - skirtR, cy - skirtR, skirtR * 2.0f, skirtR * 2.0f, 1.1f);
+
+        // Matte charcoal/off-black top cap (#1A1A1D)
+        juce::ColourGradient capGrad(
+            juce::Colour(0xFF242429), cx - capR * 0.4f, cy - capR * 0.6f,
+            juce::Colour(0xFF131316), cx + capR * 0.5f, cy + capR * 0.7f, false);
+        g.setGradientFill(capGrad);
+        g.fillEllipse(cx - capR, cy - capR, capR * 2.0f, capR * 2.0f);
+
+        g.setColour(juce::Colour(0xFF333339));
+        g.drawEllipse(cx - capR, cy - capR, capR * 2.0f, capR * 2.0f, 1.0f);
+
+        // 3. Crisp cream-white vertical pill notch (#F2EFE9) indicating position
+        const float pointerAngle = rotaryStartAngle + sliderPosProportional * (rotaryEndAngle - rotaryStartAngle);
+        juce::Graphics::ScopedSaveState state(g);
+        g.addTransform(juce::AffineTransform::rotation(pointerAngle, cx, cy));
+
+        const float pillW = 3.0f;
+        const float pillH = capR * 0.62f;
+        g.setColour(juce::Colour(0xFFF2EFE9));
+        g.fillRoundedRectangle(cx - pillW * 0.5f, cy - capR + 2.5f, pillW, pillH, 1.5f);
     }
 };
 
-class TubeSnifferLookAndFeel : public juce::LookAndFeel_V4 {
+class DigitalReadoutScreen : public juce::Component {
 public:
-    TubeSnifferLookAndFeel() {
-        setColour(juce::Slider::thumbColourId, juce::Colours::white);
-        setColour(juce::Slider::trackColourId, juce::Colour(0xFFFF7A1A));
-        setColour(juce::Slider::backgroundColourId, juce::Colour(0xFF2A2A2E));
-        setColour(juce::Slider::textBoxTextColourId, juce::Colours::white);
-        setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    void setText(const juce::String& newText) {
+        if (displayText != newText) {
+            displayText = newText;
+            repaint();
+        }
     }
 
-    juce::Font getTextButtonFont(juce::TextButton&, int buttonHeight) override {
-        return juce::Font(juce::FontOptions(juce::jmin(13.5f, static_cast<float>(buttonHeight) * 0.56f)));
-    }
+    void paint(juce::Graphics& g) override {
+        auto b = getLocalBounds().toFloat();
 
-    void drawLinearSlider(juce::Graphics& g, int x, int y, int width, int height,
-                          float sliderPos, float minSliderPos, float maxSliderPos,
-                          juce::Slider::SliderStyle style, juce::Slider& slider) override {
-        juce::ignoreUnused(minSliderPos, maxSliderPos, style, slider);
+        // Outer metallic bezel
+        g.setColour(juce::Colour(0xFF28282E));
+        g.fillRoundedRectangle(b, 4.0f);
 
-        const float trackHeight = 6.0f;
-        const float centerY = static_cast<float>(y) + static_cast<float>(height) * 0.5f;
-        const float trackY = centerY - trackHeight * 0.5f;
+        // Dark recessed screen (#08080A)
+        auto inner = b.reduced(1.5f);
+        g.setColour(juce::Colour(0xFF08080A));
+        g.fillRoundedRectangle(inner, 3.0f);
 
-        g.setColour(juce::Colour(0xFF2B2B31));
-        g.fillRoundedRectangle(static_cast<float>(x), trackY, static_cast<float>(width), trackHeight, 3.0f);
+        // Subtle inner top shadow
+        g.setColour(juce::Colour(0x66000000));
+        g.drawRoundedRectangle(inner, 3.0f, 1.0f);
 
-        const float filledWidth = juce::jlimit(0.0f, static_cast<float>(width), sliderPos - static_cast<float>(x));
-        g.setColour(juce::Colour(0xFFFF7A1A));
-        g.fillRoundedRectangle(static_cast<float>(x), trackY, filledWidth, trackHeight, 3.0f);
+        // Glowing amber-orange digital readout (#FF8C1A)
+        juce::Font f(juce::FontOptions(14.5f));
+        f.setBold(true);
+        g.setFont(f);
 
-        // White tube-shaped slider thumb (5% larger)
-        const float thumbW = 13.0f;
-        const float thumbH = 22.0f;
-        const float tx = sliderPos - thumbW * 0.5f;
-        const float ty = centerY - thumbH * 0.5f;
+        g.setColour(juce::Colour(0x44FF5E00));
+        g.drawText(displayText, inner.translated(0.0f, 0.5f), juce::Justification::centred, false);
 
-        g.setColour(juce::Colour(0x55000000));
-        g.fillRoundedRectangle(tx + 1.0f, ty + 1.5f, thumbW, thumbH, 5.5f);
-
-        g.setColour(juce::Colour(0xFFF6F6F8));
-        g.fillRoundedRectangle(tx, ty, thumbW, thumbH, 5.5f);
-
-        g.setColour(juce::Colour(0xFFD0D0D8));
-        g.fillRoundedRectangle(tx + 1.5f, ty + thumbH - 4.5f, thumbW - 3.0f, 3.0f, 1.5f);
-
-        g.setColour(juce::Colour(0xFFFF8C24));
-        g.fillRoundedRectangle(tx + thumbW * 0.5f - 1.2f, ty + 4.5f, 2.4f, 10.0f, 1.2f);
-    }
-};
-
-class BoldFirstLetterButton : public juce::TextButton {
-public:
-    explicit BoldFirstLetterButton(const juce::String& name) : juce::TextButton(name) {}
-
-    void setIsSelected(bool selected) {
-        isSelected = selected;
-        repaint();
-    }
-
-    void paintButton(juce::Graphics& g, bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override {
-        auto bounds = getLocalBounds().toFloat();
-
-        juce::Colour bg = isSelected ? juce::Colour(0xFFFF7A1A) : juce::Colour(0xFF24242A);
-        if (shouldDrawButtonAsDown)
-            bg = bg.darker(0.15f);
-        else if (shouldDrawButtonAsHighlighted)
-            bg = bg.brighter(0.1f);
-
-        g.setColour(bg);
-        g.fillRoundedRectangle(bounds, 7.0f);
-
-        g.setColour(isSelected ? juce::Colour(0xFFFFB273) : juce::Colour(0xFF383842));
-        g.drawRoundedRectangle(bounds.reduced(0.5f), 7.0f, 1.0f);
-
-        const juce::String text = getButtonText();
-        if (text.isEmpty())
-            return;
-
-        const juce::Colour textCol = isSelected ? juce::Colour(0xFF121214) : juce::Colour(0xFFE4E4EC);
-        g.setColour(textCol);
-
-        const juce::String firstChar = text.substring(0, 1);
-        const juce::String restChars = text.substring(1);
-
-        juce::Font boldFont(juce::FontOptions(15.5f));
-        boldFont.setBold(true);
-        juce::Font regularFont(juce::FontOptions(14.5f));
-
-        juce::GlyphArrangement ga;
-        ga.addLineOfText(boldFont, firstChar, 0.0f, 0.0f);
-        const float firstW = ga.getBoundingBox(0, -1, true).getWidth();
-
-        juce::GlyphArrangement gaRest;
-        gaRest.addLineOfText(regularFont, restChars, 0.0f, 0.0f);
-        const float restW = gaRest.getBoundingBox(0, -1, true).getWidth();
-
-        const float totalW = firstW + restW;
-        const float startX = bounds.getCentreX() - totalW * 0.5f;
-
-        g.setFont(boldFont);
-        g.drawText(firstChar,
-                   juce::Rectangle<float>(startX, bounds.getY(), firstW + 2.0f, bounds.getHeight()),
-                   juce::Justification::centredLeft, false);
-
-        g.setFont(regularFont);
-        g.drawText(restChars,
-                   juce::Rectangle<float>(startX + firstW, bounds.getY(), restW + 4.0f, bounds.getHeight()),
-                   juce::Justification::centredLeft, false);
+        g.setColour(juce::Colour(0xFFFF8C1A));
+        g.drawText(displayText, inner, juce::Justification::centred, false);
     }
 
 private:
-    bool isSelected = false;
+    juce::String displayText { "0" };
 };
 
-class TubeSnifferCenterpiece : public juce::Component {
+class MetallicBypassSwitch : public juce::Component {
 public:
-    void setActivity(float glowLevel, float sniffPhase) {
+    std::function<void()> onToggle;
+
+    void setActive(bool active) {
+        isActive = active;
+        repaint();
+    }
+
+    void mouseUp(const juce::MouseEvent& e) override {
+        if (getLocalBounds().contains(e.getPosition()) && onToggle)
+            onToggle();
+    }
+
+    void paint(juce::Graphics& g) override {
+        auto b = getLocalBounds().toFloat();
+        const float cx = b.getCentreX();
+        const float cy = b.getCentreY();
+
+        // Hex mounting nut & washer
+        g.setColour(juce::Colour(0xFF5A5854));
+        g.fillEllipse(cx - 8.5f, cy - 8.5f, 17.0f, 17.0f);
+        g.setColour(juce::Colour(0xFF9C9890));
+        g.drawEllipse(cx - 8.5f, cy - 8.5f, 17.0f, 17.0f, 1.2f);
+
+        g.setColour(juce::Colour(0xFF1A1A1D));
+        g.fillEllipse(cx - 4.5f, cy - 4.5f, 9.0f, 9.0f);
+
+        // Metallic toggle bat pointing UP when ON, DOWN when OFF
+        const float batTipY = isActive ? (cy - 12.0f) : (cy + 12.0f);
+        juce::ColourGradient batGrad(
+            juce::Colour(0xFFE8E4DC), cx - 2.5f, cy,
+            juce::Colour(0xFF7A7670), cx + 2.5f, batTipY, false);
+        g.setGradientFill(batGrad);
+
+        juce::Path bat;
+        bat.startNewSubPath(cx - 2.0f, cy);
+        bat.lineTo(cx - 3.2f, batTipY);
+        bat.lineTo(cx + 3.2f, batTipY);
+        bat.lineTo(cx + 2.0f, cy);
+        bat.closeSubPath();
+        g.fillPath(bat);
+
+        g.setColour(juce::Colour(0xFFF5F2EB));
+        g.fillEllipse(cx - 3.2f, batTipY - 2.5f, 6.4f, 5.0f);
+    }
+
+private:
+    bool isActive = true;
+};
+
+class ScalePillButton : public juce::TextButton {
+public:
+    explicit ScalePillButton(const juce::String& name) : juce::TextButton(name) {}
+
+    void setSelected(bool sel) {
+        selected = sel;
+        repaint();
+    }
+
+    void paintButton(juce::Graphics& g, bool highlighted, bool down) override {
+        auto b = getLocalBounds().toFloat().reduced(0.5f);
+        g.setColour(selected ? juce::Colour(0xFF241A12) : (highlighted ? juce::Colour(0xFF1C1C20) : juce::Colour(0xFF111114)));
+        if (down) g.setColour(juce::Colour(0xFF2E2116));
+        g.fillRoundedRectangle(b, 4.0f);
+
+        g.setColour(selected ? juce::Colour(0xFFFF8C1A) : juce::Colour(0xFF4A4843));
+        g.drawRoundedRectangle(b, 4.0f, selected ? 1.4f : 1.0f);
+
+        juce::Font f(juce::FontOptions(11.5f));
+        f.setBold(selected);
+        g.setFont(f);
+        g.setColour(selected ? juce::Colour(0xFFE6E2D6) : juce::Colour(0xFF8C8982));
+        g.drawText(getButtonText(), b, juce::Justification::centred, false);
+    }
+
+private:
+    bool selected = false;
+};
+
+class BacklitPresetButton : public juce::TextButton {
+public:
+    explicit BacklitPresetButton(const juce::String& name) : juce::TextButton(name) {}
+
+    void setSelected(bool sel) {
+        selected = sel;
+        repaint();
+    }
+
+    void paintButton(juce::Graphics& g, bool highlighted, bool down) override {
+        auto b = getLocalBounds().toFloat();
+
+        if (selected) {
+            // Subtle warm amber outer bloom
+            g.setColour(juce::Colour(0x33FF8C1A));
+            g.fillRoundedRectangle(b.expanded(2.0f), 7.0f);
+
+            juce::ColourGradient fillGrad(
+                juce::Colour(0xFFFF9E2C), b.getCentreX(), b.getY(),
+                juce::Colour(0xFFE86A00), b.getCentreX(), b.getBottom(), false);
+            g.setGradientFill(fillGrad);
+            g.fillRoundedRectangle(b.reduced(0.5f), 5.0f);
+
+            g.setColour(juce::Colour(0xFFFFCFA0));
+            g.drawRoundedRectangle(b.reduced(0.5f), 5.0f, 1.3f);
+        } else {
+            juce::Colour bg = highlighted ? juce::Colour(0xFF1E1E22) : juce::Colour(0xFF151518);
+            if (down) bg = juce::Colour(0xFF242429);
+            g.setColour(bg);
+            g.fillRoundedRectangle(b.reduced(0.5f), 5.0f);
+
+            g.setColour(juce::Colour(0xFF4A4842));
+            g.drawRoundedRectangle(b.reduced(0.5f), 5.0f, 1.1f);
+        }
+
+        juce::Font f(juce::FontOptions(12.5f));
+        f.setBold(true);
+        g.setFont(f);
+        g.setColour(selected ? juce::Colour(0xFF0E0E10) : juce::Colour(0xFFB8B4A8));
+        g.drawText(getButtonText(), b, juce::Justification::centred, false);
+    }
+
+private:
+    bool selected = false;
+};
+
+class TubeCageComponent : public juce::Component {
+public:
+    void setActivity(float glowLevel, float sniffPhase, float driveNorm) {
         glow = glowLevel;
         phase = sniffPhase;
+        drive = driveNorm;
         repaint();
     }
 
     void paint(juce::Graphics& g) override;
 
 private:
-    void drawRealistic12AX7(juce::Graphics& g, float cx, float cy, float scale);
-    void drawClipArtNose(juce::Graphics& g, float cx, float cy, bool facingRight, float swayX, float swayAngle);
+    void drawUprightNeonNose(juce::Graphics& g, float cx, float cy);
+    void drawVacuumTube(juce::Graphics& g, float cx, float cy, float tubeGlow);
 
     float glow = 0.0f;
     float phase = 0.0f;
+    float drive = 0.2f;
+};
+
+class KnobControlUnit {
+public:
+    juce::Slider slider;
+    DigitalReadoutScreen readout;
+    juce::Label line1Label;
+    juce::Label line2Label;
 };
 
 class TubeyBloomyAudioProcessorEditor : public juce::AudioProcessorEditor,
@@ -157,8 +292,7 @@ private:
     void selectSlot(int slotIndex);
     void setUiScaleIndex(int scaleIndex);
     void toggleMasterPower();
-    void toggleOutputPower();
-    void updateButtonStates();
+    void updateUiState();
     void handleUserSliderChange();
 
     float getScaleFactor() const {
@@ -168,33 +302,32 @@ private:
     }
 
     TubeyBloomyAudioProcessor& audioProcessor;
-    TubeSnifferLookAndFeel customLookAndFeel;
+    AmpRotaryLookAndFeel ampLookAndFeel;
 
     juce::Component contentContainer;
 
+    // Top Vacuum Tube Cage & Upright Neon Nose
+    TubeCageComponent tubeCage;
+
+    // Faceplate Header Bar
+    MetallicBypassSwitch bypassSwitch;
     juce::Label titleLabel;
-    juce::Label sizeLabel;
-    juce::TextButton scale1xBtn   { "1x" };
-    juce::TextButton scale1_5xBtn { "1.5x" };
-    juce::TextButton scale2xBtn   { "2x" };
+    juce::Label windowSizeLabel;
+    ScalePillButton scale1xBtn   { "1x" };
+    ScalePillButton scale1_5xBtn { "1.5x" };
+    ScalePillButton scale2xBtn   { "2x" };
 
-    TubeSnifferCenterpiece centerpiece;
+    // 5 Knob Control Units (4 in left box, 1 isolated in right box)
+    KnobControlUnit driveUnit;
+    KnobControlUnit sagUnit;
+    KnobControlUnit harmonicsUnit;
+    KnobControlUnit tightUnit;
+    KnobControlUnit outputUnit;
 
-    // Centered Master ON/OFF toggle button below tube
-    juce::TextButton masterPowerBtn { "ON" };
-
-    // 5 Sliders
-    juce::Slider driveSlider, sagSlider, harmonicsSlider, tightSlider;
-    OutputLevelSlider outputSlider;
-    juce::Label driveLabel, sagLabel, harmonicsLabel, tightLabel, outputLabel;
-
-    // Toggle button next to Output Level label
-    juce::TextButton outputPowerBtn { "ON" };
-
-    // 3 A/B/C Custom Memory Buttons below sliders
-    BoldFirstLetterButton assBtn   { "Ass Sniff" };
-    BoldFirstLetterButton bootyBtn { "Booty Sniff" };
-    BoldFirstLetterButton crackBtn { "Crack Sniff" };
+    // Bottom 3 Preset Strip
+    BacklitPresetButton assBtn   { "ASS SNIFF" };
+    BacklitPresetButton bootyBtn { "BOOTY SNIFF" };
+    BacklitPresetButton crackBtn { "CRACK SNIFF" };
 
     using Attachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     std::unique_ptr<Attachment> driveAttach, sagAttach, harmonicsAttach, tightAttach, outputAttach;
@@ -203,8 +336,8 @@ private:
     float smoothedGlow = 0.0f;
     float sniffPhase = 0.0f;
 
-    static constexpr int baseWidth  = 470;
-    static constexpr int baseHeight = 588;
+    static constexpr int baseWidth  = 660;
+    static constexpr int baseHeight = 420;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TubeyBloomyAudioProcessorEditor)
 };
