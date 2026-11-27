@@ -169,18 +169,18 @@ private:
     BoldFirstLetterButton bootyBtn { "Booty Sniff" };
     BoldFirstLetterButton crackBtn { "Crack Sniff" };
 
-    juce::Slider driveSlider, sagSlider, tightSlider, outputSlider;
-    juce::Label driveLabel, sagLabel, tightLabel, outputLabel;
+    juce::Slider driveSlider, sagSlider, harmonicsSlider, tightSlider, outputSlider;
+    juce::Label driveLabel, sagLabel, harmonicsLabel, tightLabel, outputLabel;
 
     using Attachment = juce::AudioProcessorValueTreeState::SliderAttachment;
-    std::unique_ptr<Attachment> driveAttach, sagAttach, tightAttach, outputAttach;
+    std::unique_ptr<Attachment> driveAttach, sagAttach, harmonicsAttach, tightAttach, outputAttach;
 
     bool isLoadingSlot = false;
     float smoothedGlow = 0.0f;
     float dancePhase = 0.0f;
 
     static constexpr int baseWidth  = 460;
-    static constexpr int baseHeight = 520;
+    static constexpr int baseHeight = 574;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TubeyBloomyAudioProcessorEditor)
 };
