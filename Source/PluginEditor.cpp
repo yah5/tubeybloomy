@@ -23,7 +23,7 @@ void TubeSnifferCenterpiece::drawRealistic12AX7(juce::Graphics& g, float cx, flo
         g.fillEllipse(cx - innerRadius, cy - 2.0f - innerRadius, innerRadius * 2.0f, innerRadius * 2.0f);
     }
 
-    // 9-pin miniature base pins (steel/nickel)
+    // 9-pin miniature base pins
     const float pinOffsets[] = { -16.0f, -10.5f, -5.0f, 0.0f, 5.0f, 10.5f, 16.0f };
     for (float px : pinOffsets) {
         g.setColour(juce::Colour(0xFF8C8C96));
@@ -38,7 +38,7 @@ void TubeSnifferCenterpiece::drawRealistic12AX7(juce::Graphics& g, float cx, flo
     g.setColour(juce::Colour(0x99FFFFFF));
     g.drawRoundedRectangle(cx - 22.0f, cy + 37.0f, 44.0f, 8.0f, 3.0f, 1.0f);
 
-    // Outer clear glass envelope (classic 12AX7 tall cylindrical silhouette)
+    // Clear glass 12AX7 envelope
     juce::Path glassBody;
     glassBody.startNewSubPath(cx - 21.0f, cy + 38.0f);
     glassBody.lineTo(cx - 21.0f, cy - 34.0f);
@@ -50,11 +50,10 @@ void TubeSnifferCenterpiece::drawRealistic12AX7(juce::Graphics& g, float cx, flo
     glassBody.lineTo(cx + 21.0f, cy + 38.0f);
     glassBody.closeSubPath();
 
-    // Subtle smoky glass interior tint
     g.setColour(juce::Colour(0x28DCE8F5));
     g.fillPath(glassBody);
 
-    // Silver getter flash coating at top dome of 12AX7
+    // Silver getter flash at top dome
     {
         juce::Graphics::ScopedSaveState getterClip(g);
         g.reduceClipRegion(glassBody);
@@ -71,28 +70,25 @@ void TubeSnifferCenterpiece::drawRealistic12AX7(juce::Graphics& g, float cx, flo
     g.fillRect(cx + 12.9f, cy - 32.0f, 1.6f, 68.0f);
     g.fillRect(cx - 0.8f,  cy - 30.0f, 1.6f, 66.0f);
 
-    // Top and bottom mica insulator discs (serrated translucent wafers)
+    // Mica spacers
     g.setColour(juce::Colour(0xCC8E929E));
     g.fillRoundedRectangle(cx - 19.5f, cy - 28.0f, 39.0f, 3.5f, 1.5f);
     g.fillRoundedRectangle(cx - 19.5f, cy + 25.0f, 39.0f, 3.5f, 1.5f);
 
-    // Getter ring halo at top
+    // Getter ring
     g.setColour(juce::Colour(0xFFB0B4BE));
     g.drawEllipse(cx - 9.0f, cy - 41.0f, 18.0f, 5.0f, 1.5f);
 
-    // Dual-triode 12AX7 gray anode plates (left & right sections)
+    // Dual-triode 12AX7 gray anode plates
     auto drawTriodeSection = [&](float plateX) {
-        // Plate metal body
         g.setColour(juce::Colour(0xFF3A3C44));
         g.fillRoundedRectangle(plateX, cy - 21.0f, 11.5f, 42.0f, 2.0f);
         g.setColour(juce::Colour(0xFF5A5D68));
         g.drawRoundedRectangle(plateX, cy - 21.0f, 11.5f, 42.0f, 2.0f, 1.0f);
 
-        // Plate cooling ribs
         g.setColour(juce::Colour(0xFF282A30));
         g.fillRect(plateX + 2.5f, cy - 16.0f, 6.5f, 32.0f);
 
-        // Glowing cathode & heater tips emerging top and bottom of each triode
         const juce::Colour idleGlow(0xFF6B280E);
         const juce::Colour activeGlow(0xFFFFC44D);
         const juce::Colour heaterCol = idleGlow.interpolatedWith(activeGlow, juce::jlimit(0.0f, 1.0f, 0.25f + glow * 0.95f));
@@ -101,7 +97,6 @@ void TubeSnifferCenterpiece::drawRealistic12AX7(juce::Graphics& g, float cx, flo
         g.fillRoundedRectangle(plateX + 3.8f, cy - 25.0f, 3.8f, 5.0f, 1.5f);
         g.fillRoundedRectangle(plateX + 3.8f, cy + 20.0f, 3.8f, 5.0f, 1.5f);
 
-        // Internal heater glow visible through plate slot
         g.setColour(heaterCol.withAlpha(0.35f + glow * 0.65f));
         g.fillRect(plateX + 4.8f, cy - 14.0f, 2.0f, 28.0f);
     };
@@ -109,7 +104,7 @@ void TubeSnifferCenterpiece::drawRealistic12AX7(juce::Graphics& g, float cx, flo
     drawTriodeSection(cx - 13.5f);
     drawTriodeSection(cx + 2.0f);
 
-    // Glass specular highlights & crisp outline
+    // Glass highlights & outline
     g.setColour(juce::Colour(0x66FFFFFF));
     g.fillRoundedRectangle(cx - 17.0f, cy - 32.0f, 3.0f, 64.0f, 1.5f);
     g.setColour(juce::Colour(0x33FFFFFF));
@@ -119,50 +114,78 @@ void TubeSnifferCenterpiece::drawRealistic12AX7(juce::Graphics& g, float cx, flo
     g.strokePath(glassBody, juce::PathStrokeType(1.6f));
 }
 
-void TubeSnifferCenterpiece::drawClipArtNose(juce::Graphics& g, float cx, float cy, bool facingRight, float swayX, float swayAngle) {
+void TubeSnifferCenterpiece::drawRetroCartoonFace(juce::Graphics& g, float cx, float cy, bool lookRight, float swayX, float swayAngle) {
     juce::Graphics::ScopedSaveState state(g);
 
-    const float dir = facingRight ? 1.0f : -1.0f;
+    const float bounceY = -std::abs(std::sin(phase)) * (glow * 4.5f);
     g.addTransform(juce::AffineTransform::translation(-cx, -cy)
-                       .scaled(dir, 1.0f)
-                       .rotated(swayAngle * dir)
-                       .translated(cx + swayX, cy));
+                       .rotated(swayAngle)
+                       .translated(cx + swayX, cy + bounceY));
 
-    // Cartoon/clip-art side-profile nose facing right toward the tube
-    juce::Path nosePath;
-    nosePath.startNewSubPath(cx - 14.0f, cy - 24.0f); // Bridge top
-    nosePath.lineTo(cx - 2.0f, cy - 8.0f);           // Bridge slope
-    nosePath.cubicTo(cx + 14.0f, cy + 4.0f,
-                     cx + 18.0f, cy + 16.0f,
-                     cx + 6.0f,  cy + 21.0f);        // Rounded nose tip
-    nosePath.cubicTo(cx - 2.0f,  cy + 24.0f,
-                     cx - 10.0f, cy + 21.0f,
-                     cx - 15.0f, cy + 17.0f);        // Base & nostril curve
-    nosePath.closeSubPath();
+    const float r = 24.0f;
 
-    // Warm skin-tone clip-art fill + shading
-    g.setColour(juce::Colour(0xFFF3B38B));
-    g.fillPath(nosePath);
+    // Vintage 1930s/50s rubber-hose style round head with chubby cheeks
+    juce::Path head;
+    head.addEllipse(cx - r, cy - r * 0.92f, r * 2.0f, r * 1.84f);
 
-    // Soft highlight on bridge
-    g.setColour(juce::Colour(0xFFFFD6BA));
-    g.fillEllipse(cx - 4.0f, cy - 2.0f, 9.0f, 13.0f);
+    // Warm cream/vintage paper fill
+    g.setColour(juce::Colour(0xFFF6EFE2));
+    g.fillPath(head);
 
-    // Nostril
-    g.setColour(juce::Colour(0xFF6E3B26));
-    g.fillEllipse(cx - 4.0f, cy + 13.0f, 7.5f, 4.5f);
+    // Bold black ink outline
+    g.setColour(juce::Colour(0xFF141416));
+    g.strokePath(head, juce::PathStrokeType(2.2f));
 
-    // Bold black clip-art outline
-    g.setColour(juce::Colour(0xFF121214));
-    g.strokePath(nosePath, juce::PathStrokeType(2.4f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    const float eyeLookOffset = lookRight ? 1.5f : -1.5f;
 
-    // Little sniff motion lines when active
-    if (glow > 0.08f) {
-        g.setColour(juce::Colour(0xFFFF8C24).withAlpha(glow * 0.85f));
-        g.drawLine(cx + 16.0f, cy + 4.0f,  cx + 23.0f, cy + 1.0f,  1.8f);
-        g.drawLine(cx + 18.0f, cy + 11.0f, cx + 25.0f, cy + 11.0f, 1.8f);
-        g.drawLine(cx + 15.0f, cy + 18.0f, cx + 22.0f, cy + 21.0f, 1.8f);
-    }
+    // Sleepy half-lidded retro eyes (left and right)
+    auto drawSleepyEye = [&](float ex, float ey) {
+        const float ew = 9.5f;
+        const float eh = 11.0f;
+
+        // Eye white
+        g.setColour(juce::Colours::white);
+        g.fillEllipse(ex - ew * 0.5f, ey - eh * 0.5f, ew, eh);
+
+        // Relaxed retro pupil looking toward the glowing tube
+        g.setColour(juce::Colour(0xFF141416));
+        g.fillEllipse(ex - 2.0f + eyeLookOffset, ey - 0.5f, 4.2f, 5.0f);
+
+        // Heavy sleepy upper eyelid covering top half of eye
+        g.setColour(juce::Colour(0xFFE6DCCB));
+        g.fillRect(ex - ew * 0.5f, ey - eh * 0.5f, ew, eh * 0.48f);
+
+        // Eye outline & horizontal sleepy lid line
+        g.setColour(juce::Colour(0xFF141416));
+        g.drawEllipse(ex - ew * 0.5f, ey - eh * 0.5f, ew, eh, 1.6f);
+        g.drawLine(ex - ew * 0.5f - 0.5f, ey - 0.3f, ex + ew * 0.5f + 0.5f, ey - 0.3f, 1.8f);
+    };
+
+    drawSleepyEye(cx - 7.5f, cy - 5.5f);
+    drawSleepyEye(cx + 7.5f, cy - 5.5f);
+
+    // Classic vintage cartoon button nose
+    g.setColour(juce::Colour(0xFF141416));
+    g.fillEllipse(cx - 3.2f + eyeLookOffset * 0.6f, cy + 0.5f, 6.4f, 4.6f);
+
+    // Wide relaxed cartoon smile with cheek dimple creases
+    juce::Path smile;
+    smile.startNewSubPath(cx - 13.5f, cy + 6.5f);
+    smile.quadraticTo(cx, cy + 16.5f, cx + 13.5f, cy + 6.5f);
+    g.strokePath(smile, juce::PathStrokeType(2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+    // Cheek dimple arcs at corners of wide smile
+    juce::Path leftDimple;
+    leftDimple.addArc(cx - 16.5f, cy + 3.5f, 5.0f, 6.0f,
+                      juce::MathConstants<float>::pi * 0.7f,
+                      juce::MathConstants<float>::pi * 1.4f, true);
+    g.strokePath(leftDimple, juce::PathStrokeType(1.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+    juce::Path rightDimple;
+    rightDimple.addArc(cx + 11.5f, cy + 3.5f, 5.0f, 6.0f,
+                       juce::MathConstants<float>::pi * 0.6f,
+                       juce::MathConstants<float>::pi * 1.3f, true);
+    g.strokePath(rightDimple, juce::PathStrokeType(1.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 }
 
 void TubeSnifferCenterpiece::paint(juce::Graphics& g) {
@@ -170,15 +193,15 @@ void TubeSnifferCenterpiece::paint(juce::Graphics& g) {
     const float cx = bounds.getCentreX();
     const float cy = bounds.getCentreY() + 2.0f;
 
-    // 1. Realistic 12AX7 tube scaled 20% larger (1.20f)
+    // Realistic 12AX7 tube (+20% larger)
     drawRealistic12AX7(g, cx, cy, 1.20f);
 
-    // 2. Two clip-art noses on either side swaying left/right like sniffing the tube
-    const float swayOffset = std::sin(phase) * (glow * 9.0f);
-    const float swayTilt   = std::sin(phase) * (glow * 0.16f);
+    // Two vintage retro cartoon faces on either side swaying left & right to the input signal
+    const float swayX     = std::sin(phase) * (glow * 11.0f);
+    const float swayAngle = std::sin(phase) * (glow * 0.18f);
 
-    drawClipArtNose(g, cx - 72.0f, cy + 4.0f, true,  swayOffset,  swayTilt);
-    drawClipArtNose(g, cx + 72.0f, cy + 4.0f, false, -swayOffset, -swayTilt);
+    drawRetroCartoonFace(g, cx - 88.0f, cy + 2.0f, true,  swayX, swayAngle);
+    drawRetroCartoonFace(g, cx + 88.0f, cy + 2.0f, false, swayX, swayAngle);
 }
 
 // ==============================================================================
@@ -195,25 +218,25 @@ TubeyBloomyAudioProcessorEditor::TubeyBloomyAudioProcessorEditor(TubeyBloomyAudi
     titleLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFFF8C24));
     contentContainer.addAndMakeVisible(titleLabel);
 
-    // Top-right Size controls: Size [1x] [2x] [3x]
+    // Top-right Size controls: Size [1x] [1.5x] [2x]
     sizeLabel.setText("Size", juce::dontSendNotification);
     sizeLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
     sizeLabel.setJustificationType(juce::Justification::centredRight);
     sizeLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFB8B8C2));
     contentContainer.addAndMakeVisible(sizeLabel);
 
-    auto setupScaleBtn = [this](juce::TextButton& btn, int mult) {
-        btn.onClick = [this, mult] { setUiScale(mult); };
+    auto setupScaleBtn = [this](juce::TextButton& btn, int idx) {
+        btn.onClick = [this, idx] { setUiScaleIndex(idx); };
         contentContainer.addAndMakeVisible(btn);
     };
-    setupScaleBtn(scale1xBtn, 1);
-    setupScaleBtn(scale2xBtn, 2);
-    setupScaleBtn(scale3xBtn, 3);
+    setupScaleBtn(scale1xBtn,   0);
+    setupScaleBtn(scale1_5xBtn, 1);
+    setupScaleBtn(scale2xBtn,   2);
 
-    // Centerpiece: 12AX7 tube + 2 sniffing clip-art noses
+    // Centerpiece: 12AX7 tube + 2 swaying retro cartoon faces
     contentContainer.addAndMakeVisible(centerpiece);
 
-    // 3 Custom Memory Buttons: Ass - Booty - Crack
+    // 3 A/B/C Custom Memory Buttons: Ass Sniff - Booty Sniff - Crack Sniff
     auto setupSlotBtn = [this](BoldFirstLetterButton& btn, int idx) {
         btn.onClick = [this, idx] { selectSlot(idx); };
         contentContainer.addAndMakeVisible(btn);
@@ -248,7 +271,7 @@ TubeyBloomyAudioProcessorEditor::TubeyBloomyAudioProcessorEditor(TubeyBloomyAudi
     outputAttach = std::make_unique<Attachment>(audioProcessor.apvts, "output", outputSlider);
 
     updateButtonStates();
-    setUiScale(audioProcessor.uiScaleMultiplier);
+    setUiScaleIndex(audioProcessor.uiScaleIndex);
     startTimerHz(30);
 }
 
@@ -257,20 +280,19 @@ TubeyBloomyAudioProcessorEditor::~TubeyBloomyAudioProcessorEditor() {
     setLookAndFeel(nullptr);
 }
 
-void TubeyBloomyAudioProcessorEditor::setUiScale(int multiplier) {
-    audioProcessor.uiScaleMultiplier = juce::jlimit(1, 3, multiplier);
-    const float scale = static_cast<float>(audioProcessor.uiScaleMultiplier);
+void TubeyBloomyAudioProcessorEditor::setUiScaleIndex(int scaleIndex) {
+    audioProcessor.uiScaleIndex = juce::jlimit(0, 2, scaleIndex);
+    const float scale = getScaleFactor();
 
     contentContainer.setBounds(0, 0, baseWidth, baseHeight);
     contentContainer.setTransform(juce::AffineTransform::scale(scale));
-    setSize(baseWidth * audioProcessor.uiScaleMultiplier,
-            baseHeight * audioProcessor.uiScaleMultiplier);
+    setSize(juce::roundToInt(static_cast<float>(baseWidth) * scale),
+            juce::roundToInt(static_cast<float>(baseHeight) * scale));
 
     updateButtonStates();
 }
 
 void TubeyBloomyAudioProcessorEditor::selectSlot(int slotIndex) {
-    // Save current slider values to the previously active slot before switching
     const int prevSlot = audioProcessor.activeSlot;
     if (prevSlot >= 0 && prevSlot < 3) {
         audioProcessor.slotMemory[static_cast<size_t>(prevSlot)] = {
@@ -323,10 +345,10 @@ void TubeyBloomyAudioProcessorEditor::updateButtonStates() {
     bootyBtn.setIsSelected(slot == 1);
     crackBtn.setIsSelected(slot == 2);
 
-    const int mult = audioProcessor.uiScaleMultiplier;
-    juce::TextButton* scaleBtns[] = { &scale1xBtn, &scale2xBtn, &scale3xBtn };
+    const int idx = audioProcessor.uiScaleIndex;
+    juce::TextButton* scaleBtns[] = { &scale1xBtn, &scale1_5xBtn, &scale2xBtn };
     for (int i = 0; i < 3; ++i) {
-        const bool active = ((i + 1) == mult);
+        const bool active = (i == idx);
         scaleBtns[i]->setColour(juce::TextButton::buttonColourId,
                                 active ? juce::Colour(0xFFFF7A1A) : juce::Colour(0xFF24242A));
         scaleBtns[i]->setColour(juce::TextButton::textColourOffId,
@@ -338,31 +360,28 @@ void TubeyBloomyAudioProcessorEditor::timerCallback() {
     const float rawLevel = audioProcessor.currentInputLevel.load(std::memory_order_relaxed);
     const float targetGlow = juce::jlimit(0.0f, 1.0f, std::pow(rawLevel * 3.0f, 0.65f));
 
-    // Light up quickly when input signal arrives; fade out slowly when silent
     if (targetGlow > smoothedGlow)
-        smoothedGlow += (targetGlow - smoothedGlow) * 0.55f; // Fast attack
+        smoothedGlow += (targetGlow - smoothedGlow) * 0.55f;
     else
-        smoothedGlow += (targetGlow - smoothedGlow) * 0.055f; // Slow, warm tube fade-out
+        smoothedGlow += (targetGlow - smoothedGlow) * 0.055f;
 
     if (smoothedGlow > 0.01f) {
-        sniffPhase += 0.28f + (smoothedGlow * 0.24f);
-        if (sniffPhase > juce::MathConstants<float>::twoPi)
-            sniffPhase -= juce::MathConstants<float>::twoPi;
+        dancePhase += 0.28f + (smoothedGlow * 0.24f);
+        if (dancePhase > juce::MathConstants<float>::twoPi)
+            dancePhase -= juce::MathConstants<float>::twoPi;
     } else {
-        sniffPhase = 0.0f;
+        dancePhase = 0.0f;
     }
 
-    centerpiece.setActivity(smoothedGlow, sniffPhase);
+    centerpiece.setActivity(smoothedGlow, dancePhase);
 }
 
 void TubeyBloomyAudioProcessorEditor::paint(juce::Graphics& g) {
-    const float scale = static_cast<float>(audioProcessor.uiScaleMultiplier);
+    const float scale = getScaleFactor();
     g.addTransform(juce::AffineTransform::scale(scale));
 
-    // Off-black background
     g.fillAll(juce::Colour(0xFF161619));
 
-    // Slider panel card
     g.setColour(juce::Colour(0xFF1E1E24));
     g.fillRoundedRectangle(22.0f, 266.0f, static_cast<float>(baseWidth - 44), 232.0f, 12.0f);
     g.setColour(juce::Colour(0xFF2E2E36));
@@ -373,23 +392,23 @@ void TubeyBloomyAudioProcessorEditor::resized() {
     contentContainer.setBounds(0, 0, baseWidth, baseHeight);
     auto area = juce::Rectangle<int>(0, 0, baseWidth, baseHeight).reduced(24, 16);
 
-    // Top bar: Title on left, Size [1x] [2x] [3x] on top right
+    // Top bar: Title on left, Size [1x] [1.5x] [2x] on top right
     auto topBar = area.removeFromTop(34);
-    auto sizeArea = topBar.removeFromRight(142);
-    sizeLabel.setBounds(sizeArea.removeFromLeft(36));
+    auto sizeArea = topBar.removeFromRight(150);
+    sizeLabel.setBounds(sizeArea.removeFromLeft(34));
     sizeArea.removeFromLeft(4);
     scale1xBtn.setBounds(sizeArea.removeFromLeft(32).reduced(1, 4));
+    scale1_5xBtn.setBounds(sizeArea.removeFromLeft(42).reduced(1, 4));
     scale2xBtn.setBounds(sizeArea.removeFromLeft(32).reduced(1, 4));
-    scale3xBtn.setBounds(sizeArea.removeFromLeft(32).reduced(1, 4));
 
     titleLabel.setBounds(topBar);
 
-    // 12AX7 tube + 2 sniffing noses centerpiece (+20% larger)
+    // 12AX7 tube + 2 swaying retro cartoon faces
     centerpiece.setBounds(area.removeFromTop(152));
 
     area.removeFromTop(6);
 
-    // 3 A/B/C custom buttons: Ass - Booty - Crack
+    // 3 A/B/C custom buttons: Ass Sniff - Booty Sniff - Crack Sniff
     auto buttonRow = area.removeFromTop(34);
     const int gap = 10;
     const int btnWidth = (buttonRow.getWidth() - (gap * 2)) / 3;
