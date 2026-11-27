@@ -10,21 +10,25 @@ TubeyBloomyAudioProcessor::TubeyBloomyAudioProcessor()
 juce::AudioProcessorValueTreeState::ParameterLayout TubeyBloomyAudioProcessor::createParameterLayout() {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
+    // Tube Drive: 0 to 24 (step 1)
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{"drive", 1}, "Tube Drive (dB)",
-        juce::NormalisableRange<float>(-6.0f, 18.0f, 1.0f), 2.0f));
+        juce::NormalisableRange<float>(0.0f, 24.0f, 1.0f), 3.0f));
 
+    // Dynamic Sag / Feel: 0 to 10 (step 1)
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{"sag", 1}, "Dynamic Sag / Feel",
         juce::NormalisableRange<float>(0.0f, 10.0f, 1.0f), 3.0f));
 
+    // Low-End Tighten: 30 to 180 Hz in increments of 5
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{"tight", 1}, "Low-End Tighten (Hz)",
-        juce::NormalisableRange<float>(30.0f, 180.0f, 1.0f), 70.0f));
+        juce::NormalisableRange<float>(30.0f, 180.0f, 5.0f), 70.0f));
 
+    // Output Level: -12 to 12 (step 1)
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{"output", 1}, "Output Level (dB)",
-        juce::NormalisableRange<float>(-18.0f, 12.0f, 1.0f), 0.0f));
+        juce::NormalisableRange<float>(-12.0f, 12.0f, 1.0f), 0.0f));
 
     return { params.begin(), params.end() };
 }
@@ -114,7 +118,7 @@ juce::AudioProcessorEditor* TubeyBloomyAudioProcessor::createEditor() {
 void TubeyBloomyAudioProcessor::getStateInformation(juce::MemoryBlock& destData) {
     auto state = apvts.copyState();
     state.setProperty("activeSlot", activeSlot, nullptr);
-    state.setProperty("uiScaleMultiplier", uiScaleMultiplier, nullptr);
+    state.setProperty("uiScaleIndex", uiScaleIndex, nullptr);
 
     for (size_t i = 0; i < 3; ++i) {
         const juce::String prefix = "slot" + juce::String(static_cast<int>(i)) + "_";
@@ -132,8 +136,8 @@ void TubeyBloomyAudioProcessor::setStateInformation(const void* data, int sizeIn
     std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
     if (xmlState && xmlState->hasTagName(apvts.state.getType())) {
         auto tree = juce::ValueTree::fromXml(*xmlState);
-        activeSlot        = static_cast<int>(tree.getProperty("activeSlot", 0));
-        uiScaleMultiplier = juce::jlimit(1, 3, static_cast<int>(tree.getProperty("uiScaleMultiplier", 1)));
+        activeSlot   = static_cast<int>(tree.getProperty("activeSlot", 0));
+        uiScaleIndex = juce::jlimit(0, 2, static_cast<int>(tree.getProperty("uiScaleIndex", 0)));
 
         for (size_t i = 0; i < 3; ++i) {
             const juce::String prefix = "slot" + juce::String(static_cast<int>(i)) + "_";
