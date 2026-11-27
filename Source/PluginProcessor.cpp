@@ -10,6 +10,10 @@ TubeyBloomyAudioProcessor::TubeyBloomyAudioProcessor()
 juce::AudioProcessorValueTreeState::ParameterLayout TubeyBloomyAudioProcessor::createParameterLayout() {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
+    // Master Bypass (false = Plugin ON, true = Plugin OFF / Bypassed)
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID{"bypass", 1}, "Master Bypass", false));
+
     // Tube Drive: 0 to 24 (step 1)
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{"drive", 1}, "Tube Drive (dB)",
@@ -20,9 +24,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout TubeyBloomyAudioProcessor::c
         juce::ParameterID{"sag", 1}, "Dynamic Sag / Feel",
         juce::NormalisableRange<float>(0.0f, 10.0f, 1.0f), 3.0f));
 
-    // Harmonics: 0 to 5 (step 1)
+    // Harmonic Richness: 0 to 5 (step 1)
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID{"harmonics", 1}, "Harmonics",
+        juce::ParameterID{"harmonics", 1}, "Harmonic Richness",
         juce::NormalisableRange<float>(0.0f, 5.0f, 1.0f), 1.0f));
 
     // Low-End Tighten: 30 to 180 Hz in increments of 5
@@ -30,10 +34,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout TubeyBloomyAudioProcessor::c
         juce::ParameterID{"tight", 1}, "Low-End Tighten (Hz)",
         juce::NormalisableRange<float>(30.0f, 180.0f, 5.0f), 70.0f));
 
-    // Output Level: -12 to 12 (step 1)
+    // Output Level: 0 (OFF / Bypassed) to 12 dB (step 1)
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{"output", 1}, "Output Level (dB)",
-        juce::NormalisableRange<float>(-12.0f, 12.0f, 1.0f), 0.0f));
+        juce::NormalisableRange<float>(0.0f, 12.0f, 1.0f), 0.0f));
 
     return { params.begin(), params.end() };
 }
@@ -73,16 +77,27 @@ void TubeyBloomyAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
     }
     currentInputLevel.store(blockInputPeak, std::memory_order_relaxed);
 
+    // Master ON/OFF bypass check
+    const bool isBypassed = apvts.getRawParameterValue("bypass")->load() > 0.5f;
+    if (isBypassed) {
+        return; // Clean true-bypass pass-through
+    }
+
+    const float outputDb = apvts.getRawParameterValue("output")->load();
+    // Output Level = 0 means OFF (completely bypassed / muted)
+    if (outputDb < 0.5f) {
+        buffer.clear();
+        return;
+    }
+
     const float driveDb      = apvts.getRawParameterValue("drive")->load();
     const float sag          = apvts.getRawParameterValue("sag")->load() * 0.1f;
-    const float harmonicsAmt = apvts.getRawParameterValue("harmonics")->load() / 5.0f; // 0.0 to 1.0
+    const float harmonicsAmt = apvts.getRawParameterValue("harmonics")->load() / 5.0f;
     const float tightHz      = apvts.getRawParameterValue("tight")->load();
-    const float outputDb     = apvts.getRawParameterValue("output")->load();
 
     const float inputGain  = juce::Decibels::decibelsToGain(driveDb);
     const float outputGain = juce::Decibels::decibelsToGain(outputDb);
 
-    // Transformer-influenced gentle high-end roll-off when harmonics are pushed
     const float transformerCutoff = 9200.0f - (harmonicsAmt * 1700.0f);
     *postLowPass.state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(getSampleRate() * 4.0, transformerCutoff);
     *preHighPass.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(getSampleRate() * 4.0, tightHz);
@@ -116,10 +131,9 @@ void TubeyBloomyAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
             float outSample    = triode - dcOffset;
 
             if (harmonicsAmt > 0.001f) {
-                // Soft-clipped driver signal for even (2nd-order) + odd (3rd-order) tube overtones
-                const float clamped = std::tanh(outSample * 1.25f);
-                const float even2nd = (clamped * clamped) * 0.42f; // Single-ended warmth
-                const float odd3rd  = (clamped * clamped * clamped - 0.75f * clamped) * 0.34f; // Push-pull grit
+                const float clamped   = std::tanh(outSample * 1.25f);
+                const float even2nd   = (clamped * clamped) * 0.42f;
+                const float odd3rd    = (clamped * clamped * clamped - 0.75f * clamped) * 0.34f;
                 const float overtones = std::tanh((even2nd + odd3rd) * (1.0f + harmonicsAmt * 0.8f));
 
                 outSample += overtones * (harmonicsAmt * 0.55f);
@@ -143,6 +157,7 @@ void TubeyBloomyAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
     auto state = apvts.copyState();
     state.setProperty("activeSlot", activeSlot, nullptr);
     state.setProperty("uiScaleIndex", uiScaleIndex, nullptr);
+    state.setProperty("lastNonZeroOutput", lastNonZeroOutput, nullptr);
 
     for (size_t i = 0; i < 3; ++i) {
         const juce::String prefix = "slot" + juce::String(static_cast<int>(i)) + "_";
@@ -161,8 +176,9 @@ void TubeyBloomyAudioProcessor::setStateInformation(const void* data, int sizeIn
     std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
     if (xmlState && xmlState->hasTagName(apvts.state.getType())) {
         auto tree = juce::ValueTree::fromXml(*xmlState);
-        activeSlot   = static_cast<int>(tree.getProperty("activeSlot", 0));
-        uiScaleIndex = juce::jlimit(0, 2, static_cast<int>(tree.getProperty("uiScaleIndex", 0)));
+        activeSlot        = static_cast<int>(tree.getProperty("activeSlot", 0));
+        uiScaleIndex      = juce::jlimit(0, 2, static_cast<int>(tree.getProperty("uiScaleIndex", 0)));
+        lastNonZeroOutput = static_cast<float>(tree.getProperty("lastNonZeroOutput", 6.0f));
 
         for (size_t i = 0; i < 3; ++i) {
             const juce::String prefix = "slot" + juce::String(static_cast<int>(i)) + "_";
