@@ -21,30 +21,25 @@ public:
         const float centerY = static_cast<float>(y) + static_cast<float>(height) * 0.5f;
         const float trackY = centerY - trackHeight * 0.5f;
 
-        // Dark track background
         g.setColour(juce::Colour(0xFF2B2B31));
         g.fillRoundedRectangle(static_cast<float>(x), trackY, static_cast<float>(width), trackHeight, 3.0f);
 
-        // Orange active line
         const float filledWidth = juce::jlimit(0.0f, static_cast<float>(width), sliderPos - static_cast<float>(x));
         g.setColour(juce::Colour(0xFFFF7A1A));
         g.fillRoundedRectangle(static_cast<float>(x), trackY, filledWidth, trackHeight, 3.0f);
 
-        // White tube-shaped slider thumb (5% larger for easy grabbing)
+        // White tube-shaped slider thumb (5% larger)
         const float thumbW = 13.0f;
         const float thumbH = 22.0f;
         const float tx = sliderPos - thumbW * 0.5f;
         const float ty = centerY - thumbH * 0.5f;
 
-        // Subtle shadow
         g.setColour(juce::Colour(0x55000000));
         g.fillRoundedRectangle(tx + 1.0f, ty + 1.5f, thumbW, thumbH, 5.5f);
 
-        // White glass/capsule body
         g.setColour(juce::Colour(0xFFF6F6F8));
         g.fillRoundedRectangle(tx, ty, thumbW, thumbH, 5.5f);
 
-        // Tube cap detail & specular highlight
         g.setColour(juce::Colour(0xFFD0D0D8));
         g.fillRoundedRectangle(tx + 1.5f, ty + thumbH - 4.5f, thumbW - 3.0f, 3.0f, 1.5f);
 
@@ -87,9 +82,9 @@ public:
         const juce::String firstChar = text.substring(0, 1);
         const juce::String restChars = text.substring(1);
 
-        juce::Font boldFont(juce::FontOptions(16.0f));
+        juce::Font boldFont(juce::FontOptions(15.5f));
         boldFont.setBold(true);
-        juce::Font regularFont(juce::FontOptions(15.0f));
+        juce::Font regularFont(juce::FontOptions(14.5f));
 
         juce::GlyphArrangement ga;
         ga.addLineOfText(boldFont, firstChar, 0.0f, 0.0f);
@@ -119,9 +114,9 @@ private:
 
 class TubeSnifferCenterpiece : public juce::Component {
 public:
-    void setActivity(float glowLevel, float sniffPhase) {
+    void setActivity(float glowLevel, float dancePhase) {
         glow = glowLevel;
-        phase = sniffPhase;
+        phase = dancePhase;
         repaint();
     }
 
@@ -129,7 +124,7 @@ public:
 
 private:
     void drawRealistic12AX7(juce::Graphics& g, float cx, float cy, float scale);
-    void drawClipArtNose(juce::Graphics& g, float cx, float cy, bool facingRight, float swayX, float swayAngle);
+    void drawRetroCartoonFace(juce::Graphics& g, float cx, float cy, bool lookRight, float swayX, float swayAngle);
 
     float glow = 0.0f;
     float phase = 0.0f;
@@ -147,9 +142,15 @@ public:
 private:
     void timerCallback() override;
     void selectSlot(int slotIndex);
-    void setUiScale(int multiplier);
+    void setUiScaleIndex(int scaleIndex);
     void updateButtonStates();
     void handleUserSliderChange();
+
+    float getScaleFactor() const {
+        if (audioProcessor.uiScaleIndex == 1) return 1.5f;
+        if (audioProcessor.uiScaleIndex == 2) return 2.0f;
+        return 1.0f;
+    }
 
     TubeyBloomyAudioProcessor& audioProcessor;
     TubeSnifferLookAndFeel customLookAndFeel;
@@ -158,15 +159,15 @@ private:
 
     juce::Label titleLabel;
     juce::Label sizeLabel;
-    juce::TextButton scale1xBtn { "1x" };
-    juce::TextButton scale2xBtn { "2x" };
-    juce::TextButton scale3xBtn { "3x" };
+    juce::TextButton scale1xBtn   { "1x" };
+    juce::TextButton scale1_5xBtn { "1.5x" };
+    juce::TextButton scale2xBtn   { "2x" };
 
     TubeSnifferCenterpiece centerpiece;
 
-    BoldFirstLetterButton assBtn   { "Ass" };
-    BoldFirstLetterButton bootyBtn { "Booty" };
-    BoldFirstLetterButton crackBtn { "Crack" };
+    BoldFirstLetterButton assBtn   { "Ass Sniff" };
+    BoldFirstLetterButton bootyBtn { "Booty Sniff" };
+    BoldFirstLetterButton crackBtn { "Crack Sniff" };
 
     juce::Slider driveSlider, sagSlider, tightSlider, outputSlider;
     juce::Label driveLabel, sagLabel, tightLabel, outputLabel;
@@ -176,7 +177,7 @@ private:
 
     bool isLoadingSlot = false;
     float smoothedGlow = 0.0f;
-    float sniffPhase = 0.0f;
+    float dancePhase = 0.0f;
 
     static constexpr int baseWidth  = 460;
     static constexpr int baseHeight = 520;
