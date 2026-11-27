@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(tubeybloomy VERSION 1.1.0)
+project(tubeybloomy VERSION 1.2.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -21,9 +21,9 @@ juce_add_plugin(tubeybloomy
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     COPY_PLUGIN_AFTER_BUILD FALSE
     PLUGIN_MANUFACTURER_CODE Cdsp
-    PLUGIN_CODE Tbbl
+    PLUGIN_CODE Tbsn
     FORMATS VST3
-    PRODUCT_NAME "TubeyBloomy"
+    PRODUCT_NAME "Tube Sniffer"
 )
 
 target_sources(tubeybloomy PRIVATE
