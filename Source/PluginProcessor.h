@@ -11,6 +11,7 @@ public:
     struct SlotSettings {
         float drive;
         float sag;
+        float harmonics;
         float tight;
         float output;
     };
@@ -48,9 +49,9 @@ public:
     // 0 = Ass Sniff, 1 = Booty Sniff, 2 = Crack Sniff
     int activeSlot = 0;
     std::array<SlotSettings, 3> slotMemory {{
-        { 3.0f,  3.0f, 70.0f,  0.0f }, // Ass Sniff
-        { 9.0f,  6.0f, 90.0f,  0.0f }, // Booty Sniff
-        { 16.0f, 9.0f, 115.0f, 0.0f }  // Crack Sniff
+        { 3.0f,  3.0f, 1.0f, 70.0f,  0.0f }, // Ass Sniff
+        { 9.0f,  6.0f, 3.0f, 90.0f,  0.0f }, // Booty Sniff
+        { 16.0f, 9.0f, 5.0f, 115.0f, 0.0f }  // Crack Sniff
     }};
 
     // UI scale index: 0 = 1x (100%), 1 = 1.5x (150%), 2 = 2x (200%)
@@ -62,6 +63,7 @@ private:
     std::unique_ptr<juce::dsp::Oversampling<float>> oversampler;
     juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>> preHighPass;
     juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>> postLowPass;
+    juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>> harmonicDcBlock;
 
     float envelope = 0.0f;
     float attackCoeff = 0.0f;
