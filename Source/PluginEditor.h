@@ -2,10 +2,10 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "PluginProcessor.h"
 
-class TubeyBloomyLookAndFeel : public juce::LookAndFeel_V4 {
+class TubeSnifferLookAndFeel : public juce::LookAndFeel_V4 {
 public:
-    TubeyBloomyLookAndFeel() {
-        setColour(juce::Slider::thumbColourId, juce::Colour(0xFFFF7A1A));
+    TubeSnifferLookAndFeel() {
+        setColour(juce::Slider::thumbColourId, juce::Colours::white);
         setColour(juce::Slider::trackColourId, juce::Colour(0xFFFF7A1A));
         setColour(juce::Slider::backgroundColourId, juce::Colour(0xFF2A2A2E));
         setColour(juce::Slider::textBoxTextColourId, juce::Colours::white);
@@ -21,37 +21,116 @@ public:
         const float centerY = static_cast<float>(y) + static_cast<float>(height) * 0.5f;
         const float trackY = centerY - trackHeight * 0.5f;
 
-        g.setColour(juce::Colour(0xFF2A2A2F));
+        // Dark track background
+        g.setColour(juce::Colour(0xFF2B2B31));
         g.fillRoundedRectangle(static_cast<float>(x), trackY, static_cast<float>(width), trackHeight, 3.0f);
 
+        // Orange active line
         const float filledWidth = juce::jlimit(0.0f, static_cast<float>(width), sliderPos - static_cast<float>(x));
         g.setColour(juce::Colour(0xFFFF7A1A));
         g.fillRoundedRectangle(static_cast<float>(x), trackY, filledWidth, trackHeight, 3.0f);
 
-        const float thumbRadius = 8.5f;
-        g.setColour(juce::Colour(0x44FF7A1A));
-        g.fillEllipse(sliderPos - thumbRadius - 3.0f, centerY - thumbRadius - 3.0f,
-                      (thumbRadius + 3.0f) * 2.0f, (thumbRadius + 3.0f) * 2.0f);
+        // White tube-shaped slider thumb (5% larger for easy grabbing)
+        const float thumbW = 13.0f;
+        const float thumbH = 22.0f;
+        const float tx = sliderPos - thumbW * 0.5f;
+        const float ty = centerY - thumbH * 0.5f;
+
+        // Subtle shadow
+        g.setColour(juce::Colour(0x55000000));
+        g.fillRoundedRectangle(tx + 1.0f, ty + 1.5f, thumbW, thumbH, 5.5f);
+
+        // White glass/capsule body
+        g.setColour(juce::Colour(0xFFF6F6F8));
+        g.fillRoundedRectangle(tx, ty, thumbW, thumbH, 5.5f);
+
+        // Tube cap detail & specular highlight
+        g.setColour(juce::Colour(0xFFD0D0D8));
+        g.fillRoundedRectangle(tx + 1.5f, ty + thumbH - 4.5f, thumbW - 3.0f, 3.0f, 1.5f);
 
         g.setColour(juce::Colour(0xFFFF8C24));
-        g.fillEllipse(sliderPos - thumbRadius, centerY - thumbRadius, thumbRadius * 2.0f, thumbRadius * 2.0f);
-
-        g.setColour(juce::Colour(0xFFFFD1A6));
-        g.fillEllipse(sliderPos - 3.0f, centerY - 3.0f, 6.0f, 6.0f);
+        g.fillRoundedRectangle(tx + thumbW * 0.5f - 1.2f, ty + 4.5f, 2.4f, 10.0f, 1.2f);
     }
 };
 
-class CuteTubeMascot : public juce::Component {
+class BoldFirstLetterButton : public juce::TextButton {
 public:
-    void setActivity(float glowLevel, float dancePhase) {
+    explicit BoldFirstLetterButton(const juce::String& name) : juce::TextButton(name) {}
+
+    void setIsSelected(bool selected) {
+        isSelected = selected;
+        repaint();
+    }
+
+    void paintButton(juce::Graphics& g, bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override {
+        auto bounds = getLocalBounds().toFloat();
+
+        juce::Colour bg = isSelected ? juce::Colour(0xFFFF7A1A) : juce::Colour(0xFF24242A);
+        if (shouldDrawButtonAsDown)
+            bg = bg.darker(0.15f);
+        else if (shouldDrawButtonAsHighlighted)
+            bg = bg.brighter(0.1f);
+
+        g.setColour(bg);
+        g.fillRoundedRectangle(bounds, 7.0f);
+
+        g.setColour(isSelected ? juce::Colour(0xFFFFB273) : juce::Colour(0xFF383842));
+        g.drawRoundedRectangle(bounds.reduced(0.5f), 7.0f, 1.0f);
+
+        const juce::String text = getButtonText();
+        if (text.isEmpty())
+            return;
+
+        const juce::Colour textCol = isSelected ? juce::Colour(0xFF121214) : juce::Colour(0xFFE4E4EC);
+        g.setColour(textCol);
+
+        const juce::String firstChar = text.substring(0, 1);
+        const juce::String restChars = text.substring(1);
+
+        juce::Font boldFont(juce::FontOptions(16.0f));
+        boldFont.setBold(true);
+        juce::Font regularFont(juce::FontOptions(15.0f));
+
+        juce::GlyphArrangement ga;
+        ga.addLineOfText(boldFont, firstChar, 0.0f, 0.0f);
+        const float firstW = ga.getBoundingBox(0, -1, true).getWidth();
+
+        juce::GlyphArrangement gaRest;
+        gaRest.addLineOfText(regularFont, restChars, 0.0f, 0.0f);
+        const float restW = gaRest.getBoundingBox(0, -1, true).getWidth();
+
+        const float totalW = firstW + restW;
+        const float startX = bounds.getCentreX() - totalW * 0.5f;
+
+        g.setFont(boldFont);
+        g.drawText(firstChar,
+                   juce::Rectangle<float>(startX, bounds.getY(), firstW + 2.0f, bounds.getHeight()),
+                   juce::Justification::centredLeft, false);
+
+        g.setFont(regularFont);
+        g.drawText(restChars,
+                   juce::Rectangle<float>(startX + firstW, bounds.getY(), restW + 4.0f, bounds.getHeight()),
+                   juce::Justification::centredLeft, false);
+    }
+
+private:
+    bool isSelected = false;
+};
+
+class TubeSnifferCenterpiece : public juce::Component {
+public:
+    void setActivity(float glowLevel, float sniffPhase) {
         glow = glowLevel;
-        phase = dancePhase;
+        phase = sniffPhase;
         repaint();
     }
 
     void paint(juce::Graphics& g) override;
 
 private:
+    void drawRealistic12AX7(juce::Graphics& g, float cx, float cy, float scale);
+    void drawClipArtNose(juce::Graphics& g, float cx, float cy, bool facingRight, float swayX, float swayAngle);
+
     float glow = 0.0f;
     float phase = 0.0f;
 };
@@ -67,20 +146,27 @@ public:
 
 private:
     void timerCallback() override;
-    void applyStrengthPreset(int mode);
-    void updateButtonStyles();
+    void selectSlot(int slotIndex);
+    void setUiScale(int multiplier);
+    void updateButtonStates();
     void handleUserSliderChange();
 
     TubeyBloomyAudioProcessor& audioProcessor;
-    TubeyBloomyLookAndFeel orangeLookAndFeel;
+    TubeSnifferLookAndFeel customLookAndFeel;
+
+    juce::Component contentContainer;
 
     juce::Label titleLabel;
-    CuteTubeMascot tubeMascot;
+    juce::Label sizeLabel;
+    juce::TextButton scale1xBtn { "1x" };
+    juce::TextButton scale2xBtn { "2x" };
+    juce::TextButton scale3xBtn { "3x" };
 
-    juce::TextButton lightBtn  { "Light" };
-    juce::TextButton mediumBtn { "Medium" };
-    juce::TextButton heavyBtn  { "Heavy" };
-    juce::TextButton customBtn { "Custom" };
+    TubeSnifferCenterpiece centerpiece;
+
+    BoldFirstLetterButton assBtn   { "Ass" };
+    BoldFirstLetterButton bootyBtn { "Booty" };
+    BoldFirstLetterButton crackBtn { "Crack" };
 
     juce::Slider driveSlider, sagSlider, tightSlider, outputSlider;
     juce::Label driveLabel, sagLabel, tightLabel, outputLabel;
@@ -88,9 +174,12 @@ private:
     using Attachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     std::unique_ptr<Attachment> driveAttach, sagAttach, tightAttach, outputAttach;
 
-    bool isApplyingPreset = false;
+    bool isLoadingSlot = false;
     float smoothedGlow = 0.0f;
-    float dancePhase = 0.0f;
+    float sniffPhase = 0.0f;
+
+    static constexpr int baseWidth  = 460;
+    static constexpr int baseHeight = 520;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TubeyBloomyAudioProcessorEditor)
 };
