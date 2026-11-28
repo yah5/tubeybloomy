@@ -14,20 +14,20 @@ juce::AudioProcessorValueTreeState::ParameterLayout TubeyBloomyAudioProcessor::c
     params.push_back(std::make_unique<juce::AudioParameterBool>(
         juce::ParameterID{"bypass", 1}, "Master Bypass", false));
 
-    // Tube Drive: 0 to 24 (step 1)
+    // Swamp Ass Drive: 0 to 12 dB (step 1)
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID{"drive", 1}, "Tube Drive (dB)",
-        juce::NormalisableRange<float>(0.0f, 24.0f, 1.0f), 3.0f));
+        juce::ParameterID{"drive", 1}, "Swamp Ass Drive (dB)",
+        juce::NormalisableRange<float>(0.0f, 12.0f, 1.0f), 2.0f));
 
-    // Dynamic Sag / Feel: 0 to 10 (step 1)
+    // Dynamic Sag / Feel: 0 to 12 (step 1)
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{"sag", 1}, "Dynamic Sag / Feel",
-        juce::NormalisableRange<float>(0.0f, 10.0f, 1.0f), 3.0f));
+        juce::NormalisableRange<float>(0.0f, 12.0f, 1.0f), 3.0f));
 
-    // Harmonic Richness: 0 to 5 (step 1)
+    // Harmonic Richness: 0 to 6 (step 1)
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{"harmonics", 1}, "Harmonic Richness",
-        juce::NormalisableRange<float>(0.0f, 5.0f, 1.0f), 1.0f));
+        juce::NormalisableRange<float>(0.0f, 6.0f, 1.0f), 1.0f));
 
     // Low-End Tighten: 30 to 180 Hz in increments of 5
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
@@ -89,8 +89,8 @@ void TubeyBloomyAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
     }
 
     const float driveDb      = apvts.getRawParameterValue("drive")->load();
-    const float sag          = apvts.getRawParameterValue("sag")->load() * 0.1f;
-    const float harmonicsAmt = apvts.getRawParameterValue("harmonics")->load() / 5.0f;
+    const float sag          = apvts.getRawParameterValue("sag")->load() / 12.0f;
+    const float harmonicsAmt = apvts.getRawParameterValue("harmonics")->load() / 6.0f;
     const float tightHz      = apvts.getRawParameterValue("tight")->load();
 
     const float inputGain  = juce::Decibels::decibelsToGain(driveDb);
